@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: score
+      POSTGRES_PASSWORD: score
+      POSTGRES_DB: score
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U score"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # フラグローテーターが書き込む MySQL (config.py の DB 設定に一致)。
+  # ローテーターは host="<スコアサーバIP>" でここへ接続する。
+  flagdb:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: ctf_flags
+      MYSQL_USER: rotator
+      MYSQL_PASSWORD: Rotator1!
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      # ローテーター config.py が localhost:3306 を前提とするため 3306 に公開
+      - "3306:3306"
+    volumes:
+      - flagdata:/var/lib/mysql
+
+  score-server:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      flagdb:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://score:score@db:5432/score
+      REDIS_URL: redis://redis:6379/0
+      ROTATOR_DATABASE_URL: mysql+aiomysql://rotator:Rotator1!@flagdb:3306/ctf_flags
+      # CTFd は別 compose プロジェクト (別ネットワーク) のため、ホスト経由で到達する。
+      # CTFd はホストの 8000 を公開しているので host.docker.internal:8000 を指す。
+      CTFD_URL: http://host.docker.internal:8000
+      INTERNAL_KEY: change-me-internal-key
+      LOG_LEVEL: info
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8001:8000"
+    command: >
+      sh -c "python -m scripts.init_db &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  pgdata:
+  flagdata:
