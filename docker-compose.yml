@@ -54,7 +54,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://score:score@db:5432/score
       REDIS_URL: redis://redis:6379/0
       ROTATOR_DATABASE_URL: mysql+aiomysql://rotator:Rotator1!@flagdb:3306/ctf_flags
-      # CTFd は別 compose プロジェクト (別ネットワーク) のため、ホスト経由で到達する。
+      # CTFd は別 compose プロジェクト(別ネットワーク) のため、ホスト経由で到達する。
       # CTFd はホストの 8000 を公開しているので host.docker.internal:8000 を指す。
       CTFD_URL: http://host.docker.internal:8000
       INTERNAL_KEY: change-me-internal-key

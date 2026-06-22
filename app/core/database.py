@@ -28,7 +28,7 @@ redis_client: aioredis.Redis = aioredis.from_url(
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    async with AsyncSessionLocal() as session:
+    async with AsyncSessionLocal() as session: 
         yield session
 
 

@@ -16,6 +16,7 @@ from app.services.scoring import recalculate_defense
 router = APIRouter(tags=["sla"])
 
 
+
 @router.post("/sla")
 async def receive_sla(
     body: SLAResult,
