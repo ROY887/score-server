@@ -27,9 +27,10 @@ SCRIPTS_DIR = Path(__file__).parent
 async def run_sql_file(conn, filename: str) -> None:
     sql = (SCRIPTS_DIR / filename).read_text()
     # asyncpg は prepared statement に複数文を含められないため、
-    # simple query protocol を使う生コネクションの execute() で流し込む。
+    # simple query protocol を使う生コネクションのexecute()で流し込む。
     raw = await conn.get_raw_connection()
     await raw.driver_connection.execute(sql)
+
 
 
 async def upsert_game_config(session) -> None:

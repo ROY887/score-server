@@ -1,0 +1,29 @@
+# =============================================================================
+# 実インフラ (Proxmox) 向け override レイヤー
+# =============================================================================
+# 使い方:
+#   ローカル単一マシン demo (フォールバック):
+#     docker compose up -d
+#   実インフラ (FLAGローテータ=192.168.10.4 などを指す):
+#     docker compose -f docker-compose.yml -f docker-compose.infra.yml up -d
+#
+# このファイルは base(docker-compose.yml) に「差分だけ」を重ねる。
+# 変更するのは score-server が *別VM* を指す環境変数のみ:
+#   - ROTATOR_DATABASE_URL … FLAGローテータVM (192.168.10.4) の MySQL
+# DATABASE_URL(db) / REDIS_URL(redis) は score-server 同居の付属コンテナなので
+# **あえて変更しない**（compose内部通信。IP化すると逆に壊れる）。
+#
+# CTFD_URL は override しない。CTFd を score-server と同じVM (192.168.10.2) で
+# 起動する前提のため、base の http://host.docker.internal:8000 をそのまま継承する。
+# （CTFd は別compose `~/CTFd` のまま、同じホストで up すればよい。統合は不要）
+# 競技者からは http://192.168.10.2:8000 でCTFdに到達する。
+#
+# 注意: override では base の `flagdb` サービスと depends_on を消せない
+# （compose の merge 仕様）。infra モードでもローカル flagdb は起動するが、
+# score-server は 192.168.10.4 しか読まないため無害に無視される。
+# =============================================================================
+services:
+  score-server:
+    environment:
+      # 実インフラ: FLAGローテータVM (192.168.10.4) の MySQL を読む
+      ROTATOR_DATABASE_URL: mysql+aiomysql://rotator:Rotator1!@192.168.10.4:3306/ctf_flags

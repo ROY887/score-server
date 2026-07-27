@@ -84,10 +84,10 @@ async def attack_data(
     x_team_token: str = Header(...),
     session: AsyncSession = Depends(get_session),
 ):
-    """pfr フラグの public_flag_data を公開する (ForcAD の get_attack_data() 準拠)。
-
-    形式: { "service_name": { "team_ip": ["hint1", ...] } }
-    """
+    
+   #pfr フラグの public_flag_data を公開する (ForcAD の get_attack_data() 準拠)。
+   # 形式: { "service_name": { "team_ip": ["hint1", ...] } }
+   
     team_id = await get_team_id_by_token(x_team_token)
     if not team_id:
         return JSONResponse({"error": "Invalid team token."}, status_code=400)
