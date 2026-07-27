@@ -19,9 +19,6 @@ class Settings(BaseSettings):
     # CTFd AWD plugin
     CTFD_URL: str = "http://ctfd:8000"
 
-    # 共有シークレット (SLA チェッカー / フラグローテーター用)
-    INTERNAL_KEY: str = "change-me-internal-key"
-
     # ログレベル (debug / info / warning / error)
     LOG_LEVEL: str = "info"
 

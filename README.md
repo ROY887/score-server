@@ -12,21 +12,24 @@ ForcADのフラグ受付・スコア計算ロジックを FastAPI + SQLAlchemy(a
 docker compose up --build
 ```
 
-起動時に `scripts/init_db.py` がスキーマ・ストアド関数・サンプルデータを投入する。
+起動時に `score-server` コンテナの `command` が `scripts/init_db.py` を実行し、
+スキーマ・ストアド関数・サンプルデータを投入する。
 
-ローカル実行する場合:
+### DB を手動で再投入する場合
+
+`init_db` は Compose ネットワーク内のサービス名（db /redis / flagdb）へ
+接続するため、**コンテナ内で実行する**。ホスト側で直接 `python -m scripts.init_db`
+を実行すると db を名前解決できず失敗する。
 
 ```bash
-pip install -r requirements.txt
-python -m scripts.init_db
-uvicorn app.main:app --reload
+docker compose exec score-server python -m scripts.init_db
 ```
 
 ## エンドポイント
 
 | エンドポイント | 呼び出し元 | 認証 |
 | `PUT /flags/` | 参加チームPC | `X-Team-Token` |
-| `POST /sla` | SLA チェッカー | `X-Internal-Key` |
+| `POST /sla` | SLA チェッカー | なし |
 | `GET /scoreboard` | 公開 | なし |
 | `GET /attack_data` | 参加チームPC | `X-Team-Token` |
 | `GET /health/` | 監視 | なし |
@@ -58,6 +61,62 @@ SSH 配置すると同時に、**MySQL `ctf_flags.flags`**（`round, team, servi
 - ローテーター側 MySQL は docker-compose の `flagdb` サービスが提供する
   （ローテーター `config.py` の `host` をこのスコアサーバの IP に向ける）。
 
+## CTFd（スコア表示）のセットアップ
+
+スコア表示は CTFd + A&D プラグインが担う。score-server はラウンド切り替え時に
+集計を `http://<CTFd>/plugins/awd/api/update` へ POST する（score-server の
+`CTFD_URL` 既定は `http://host.docker.internal:8000`）。
+
+CTFd は score-server とは**別の docker-compose スタック**として起動する
+（本リポジトリ外。既定の設置先は `~/CTFd`）。
+
+### 1. CTFd を clone
+
+```bash
+git clone https://github.com/CTFd/CTFd.git ~/CTFd
+cd ~/CTFd
+```
+
+### 2. A&D プラグインを配置
+
+[splitline/CTFd-Attack-and-Defense-Plugin](https://github.com/splitline/CTFd-Attack-and-Defense-Plugin)
+を `CTFd/plugins/awd` へ clone する。CTFd は起動時に `plugins/` 直下を自動ロードする。
+
+```bash
+git clone https://github.com/splitline/CTFd-Attack-and-Defense-Plugin.git \
+  ~/CTFd/CTFd/plugins/awd
+```
+
+### 3. 起動
+
+```bash
+cd ~/CTFd
+# SECRET_KEY を用意（未設定なら生成して .env に書く）
+# [ -f .env ] || echo "SECRET_KEY=$(python3 -c 'import secrets;print(secrets.token_hex(32))')" > .env
+# docker compose up -d --build
+```
+
+- CTFd（アプリ直）: <http://localhost:8000>
+- CTFd（nginx 経由）: <http://localhost:80>
+
+初回は <http://localhost:8000/setup> で管理者・大会名を作成する。
+
+### 4. AWD チャレンジ作成と連携設定
+
+1. 管理画面で **AWD** タイプのチャレンジを作成する（例: `service-a`, `service-b`）。
+2. 作成後に表示される **challenge id** と **token** を控える。
+3. score-server 側の [scripts/seed.py](scripts/seed.py) の `SERVICES[].ctfd_challenge_id`
+   / `ctfd_token`、および `TEAMS[].ctfd_team_id` を CTFd の値に合わせる。
+4. score-server で再投入して反映する。
+
+   ```bash
+   docker compose exec score-server python -m scripts.init_db
+   ```
+
+> score-server は別 compose プロジェクト（別ネットワーク）のため、コンテナから
+> CTFd へは `host.docker.internal:8000`（ホスト公開ポート）経由で到達する。
+> CTFd が停止していても ingest は継続し、push 失敗は警告ログのみ（[docs/テスト手順.md](docs/テスト手順.md) 7-4）。
+
 ## 設計のポイント
 
 - **二重提出防止**: `stolen_flags` の複合 PK (`flag_id`, `attacker_id`) を DB レベルで保証。
@@ -69,7 +128,7 @@ SSH 配置すると同時に、**MySQL `ctf_flags.flags`**（`round, team, servi
 
 ## ディレクトリ
 
-```
+```a
 app/
   api/        flags / sla / scoreboard / health の各ルーター
   models/     SQLAlchemy モデル・Pydantic スキーマ・TaskStatus Enum
@@ -78,3 +137,27 @@ app/
   core/       設定・DB/Redis 接続
 scripts/      create_tables.sql / create_functions.sql / init_db.py
 ```
+
+## clear 
+
+# ── ① score-server 側：チーム・フラグ・履歴を全消去（スキーマは維持） ──
+
+```bash
+cd ~/score-server
+docker compose exec db psql -U score -d score -c "
+TRUNCATE TABLE stolen_flags, team_services, flags, sla_results, teams RESTART IDENTITY CASCADE;
+"
+docker compose exec redis redis-cli FLUSHALL
+```
+
+# ── ② CTFd 側：team/user(adminを除く)とスコア履歴を全消去（チャレンジ設定は維持） ──
+
+```bash
+cd ~/CTFd
+docker compose exec db mysql -uctfd -pctfd ctfd -e "
+DELETE FROM notifications;
+DELETE FROM users WHERE type != 'admin';
+DELETE FROM teams;
+"
+```
+

@@ -57,7 +57,6 @@ services:
       # CTFd は別 compose プロジェクト(別ネットワーク) のため、ホスト経由で到達する。
       # CTFd はホストの 8000 を公開しているので host.docker.internal:8000 を指す。
       CTFD_URL: http://host.docker.internal:8000
-      INTERNAL_KEY: change-me-internal-key
       LOG_LEVEL: info
     extra_hosts:
       - "host.docker.internal:host-gateway"

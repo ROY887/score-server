@@ -56,7 +56,7 @@ async def scoreboard(session: AsyncSession = Depends(get_session)):
                 continue
             sla_rate = (
                 data["checks_passed"] / data["checks"] if data["checks"] else 0.0
-            )
+            ) 
             svc_scores[service_name[service.id]] = {
                 "attack_pts": data["attack_pts"],
                 "defense_pts": data["defense_pts"],

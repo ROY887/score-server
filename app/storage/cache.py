@@ -1,7 +1,7 @@
 """Redis キャッシュヘルパー。
 
-フラグ・チームトークン・ゲーム設定を Redis にキャッシュし、
-DB アクセスを最小化する (ForcAD の storage 層を参考にした)。
+フラグ・チームトークン・ゲーム設定をRedisにキャッシュし、
+DB アクセスを最小化する(ForcAD の storage 層を参考にした)。
 """
 
 import json

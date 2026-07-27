@@ -1,12 +1,10 @@
 """SLA 結果受け取り (POST /sla) — SLA チェッカー (別チーム) からの呼び出し。"""
 
-from fastapi import APIRouter, Depends, Header
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends
 from sqlalchemy import insert, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.database import get_session
 from app.models.db import SLAResultRow, TeamService
 from app.models.schemas import SLAResult
@@ -20,12 +18,8 @@ router = APIRouter(tags=["sla"])
 @router.post("/sla")
 async def receive_sla(
     body: SLAResult,
-    x_internal_key: str = Header(...),
     session: AsyncSession = Depends(get_session),
 ):
-    if x_internal_key != settings.INTERNAL_KEY:
-        return JSONResponse({"error": "Forbidden"}, status_code=403)
-
     # sla_results に記録
     await session.execute(insert(SLAResultRow).values(**body.model_dump()))
 

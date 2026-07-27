@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import settings
-
-engine = create_async_engine(settings.DATABASE_URL, echo=False, pool_pre_ping=True)
+                                                    #echoは本番環境ならfalseにする
+engine = create_async_engine(settings.DATABASE_URL, echo=True, pool_pre_ping=True)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
@@ -19,14 +19,15 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 # フラグローテーターの MySQL (ctf_flags) を参照するエンジン。
-# aiomysql は pool_pre_ping と相性が悪い (ping() のシグネチャ差異) ため無効化する。
-rotator_engine = create_async_engine(settings.ROTATOR_DATABASE_URL, echo=False)
+# aiomysql は pool_pre_ping と相性が悪い(ping()のシグネチャ差異)ため無効化する。　
+                                                                   #同じく
+rotator_engine = create_async_engine(settings.ROTATOR_DATABASE_URL, echo=True)
 
 redis_client: aioredis.Redis = aioredis.from_url(
     settings.REDIS_URL, encoding="utf-8", decode_responses=True
 )
 
-
+#
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session: 
         yield session
